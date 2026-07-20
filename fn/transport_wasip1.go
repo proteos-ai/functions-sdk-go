@@ -21,6 +21,9 @@ func extismRecordsDelete(uint64) uint64
 //go:wasmimport fn records_list
 func extismRecordsList(uint64) uint64
 
+//go:wasmimport fn records_batch_upsert
+func extismRecordsBatchUpsert(uint64) uint64
+
 //go:wasmimport fn query_execute
 func extismQueryExecute(uint64) uint64
 
@@ -81,6 +84,7 @@ func init() {
 		recordsUpdate:              func(in []byte) ([]byte, error) { return wasipCall(extismRecordsUpdate, in) },
 		recordsDelete:              func(in []byte) ([]byte, error) { return wasipCall(extismRecordsDelete, in) },
 		recordsList:                func(in []byte) ([]byte, error) { return wasipCall(extismRecordsList, in) },
+		recordsBatchUpsert:         func(in []byte) ([]byte, error) { return wasipCall(extismRecordsBatchUpsert, in) },
 		queryExecute:               func(in []byte) ([]byte, error) { return wasipCall(extismQueryExecute, in) },
 		cacheGet:                   func(in []byte) ([]byte, error) { return wasipCall(extismCacheGet, in) },
 		cacheSet:                   func(in []byte) ([]byte, error) { return wasipCall(extismCacheSet, in) },

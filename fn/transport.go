@@ -12,6 +12,7 @@ type transportFns struct {
 	recordsUpdate              func([]byte) ([]byte, error)
 	recordsDelete              func([]byte) ([]byte, error)
 	recordsList                func([]byte) ([]byte, error)
+	recordsBatchUpsert         func([]byte) ([]byte, error)
 	queryExecute               func([]byte) ([]byte, error)
 	cacheGet                   func([]byte) ([]byte, error)
 	cacheSet                   func([]byte) ([]byte, error)

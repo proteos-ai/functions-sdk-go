@@ -2,6 +2,7 @@ package fn
 
 import (
 	"encoding/json"
+	"strconv"
 
 	datamodel "go.proteos.ai/model/data"
 	sdkdata "go.proteos.ai/sdk/data"
@@ -112,6 +113,33 @@ func (recordsAPI) List(_ Context, entity string, opts *sdkdata.ListRecordsOption
 	return out, nil
 }
 
+// BatchUpsert sends a batch of upsert transactions to data-service.
+// Upsert is id-presence based: a transaction whose data carries an `id`
+// that exists is a partial-merge update; anything else is a create. The
+// batch is NOT atomic — every transaction succeeds or fails on its own
+// and is reported per-row in the response, so callers must check each
+// result's Status. transaction_id is a caller-chosen correlation token
+// echoed back verbatim. There is no server-side batch size cap; keep
+// batches modest (~100) since each row is a full write.
+func (recordsAPI) BatchUpsert(_ Context, entity string, txns []sdkdata.BatchUpsertTransaction) (sdkdata.BatchUpsertRecordsResponse, error) {
+	req, err := json.Marshal(struct {
+		Entity       string                           `json:"entity"`
+		Transactions []sdkdata.BatchUpsertTransaction `json:"transactions"`
+	}{entity, txns})
+	if err != nil {
+		return sdkdata.BatchUpsertRecordsResponse{}, err
+	}
+	raw, err := callDecode(transport.recordsBatchUpsert, req)
+	if err != nil {
+		return sdkdata.BatchUpsertRecordsResponse{}, err
+	}
+	var out sdkdata.BatchUpsertRecordsResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return sdkdata.BatchUpsertRecordsResponse{}, err
+	}
+	return out, nil
+}
+
 // GetRecord decodes the record into the caller's typed T (e.g.
 // domain.Invoice). Round-trips the map through JSON.
 func GetRecord[T any](ctx Context, entity, id string) (T, error) {
@@ -176,6 +204,26 @@ func ListRecords[T any](ctx Context, entity string, opts *sdkdata.ListRecordsOpt
 		typed[i] = t
 	}
 	return Many[T]{Meta: many.Meta, Data: typed}, nil
+}
+
+// BatchUpsertRecords is the typed sibling of Records.BatchUpsert: each
+// item is marshalled into a transaction whose transaction_id is the
+// item's zero-based index formatted as a string, so result rows map back
+// to input positions. The response keeps records as free-form maps
+// because a batch can mix successes and per-row errors.
+func BatchUpsertRecords[T any](ctx Context, entity string, items []T) (sdkdata.BatchUpsertRecordsResponse, error) {
+	txns := make([]sdkdata.BatchUpsertTransaction, len(items))
+	for i, item := range items {
+		rec, err := toRecord(item)
+		if err != nil {
+			return sdkdata.BatchUpsertRecordsResponse{}, err
+		}
+		txns[i] = sdkdata.BatchUpsertTransaction{
+			TransactionID: strconv.Itoa(i),
+			Data:          rec,
+		}
+	}
+	return Records.BatchUpsert(ctx, entity, txns)
 }
 
 func convertRecord[T any](rec datamodel.Record) (T, error) {

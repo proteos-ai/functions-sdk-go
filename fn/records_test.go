@@ -160,6 +160,55 @@ func TestRecords_List_DecodesManyT(t *testing.T) {
 	}
 }
 
+func TestRecords_BatchUpsert_TypedRoundTrip(t *testing.T) {
+	resetTransport()
+	var seen struct {
+		Entity       string                           `json:"entity"`
+		Transactions []sdkdata.BatchUpsertTransaction `json:"transactions"`
+	}
+	transport.recordsBatchUpsert = func(in []byte) ([]byte, error) {
+		_ = json.Unmarshal(in, &seen)
+		return okEnvelope(t, sdkdata.BatchUpsertRecordsResponse{
+			Results: []sdkdata.BatchUpsertTransactionResult{
+				{TransactionID: "0", Status: sdkdata.BatchTransactionSuccess, Record: datamodel.Record{"id": "i-1", "amount": 10}},
+				{TransactionID: "1", Status: sdkdata.BatchTransactionError, Error: &sdkdata.BatchTransactionErr{Code: "upsert_error", Message: "boom"}},
+			},
+		}), nil
+	}
+
+	out, err := BatchUpsertRecords(Context{}, "invoice", []invoice{{Amount: 10}, {Id: "i-2", Amount: 20}})
+	if err != nil {
+		t.Fatalf("BatchUpsertRecords: %v", err)
+	}
+	if seen.Entity != "invoice" || len(seen.Transactions) != 2 {
+		t.Fatalf("request shape = %+v", seen)
+	}
+	if seen.Transactions[0].TransactionID != "0" || seen.Transactions[1].TransactionID != "1" {
+		t.Errorf("transaction ids = %q, %q", seen.Transactions[0].TransactionID, seen.Transactions[1].TransactionID)
+	}
+	if seen.Transactions[1].Data["id"] != "i-2" {
+		t.Errorf("transaction data not round-tripped: %+v", seen.Transactions[1].Data)
+	}
+	if len(out.Results) != 2 {
+		t.Fatalf("len(Results) = %d", len(out.Results))
+	}
+	if out.Results[0].Status != sdkdata.BatchTransactionSuccess || out.Results[1].Error == nil {
+		t.Errorf("Results = %+v", out.Results)
+	}
+}
+
+func TestRecords_BatchUpsert_ErrorEnvelope(t *testing.T) {
+	resetTransport()
+	transport.recordsBatchUpsert = func([]byte) ([]byte, error) {
+		return errEnvelope(t, "permission_denied", "no access"), nil
+	}
+
+	_, err := Records.BatchUpsert(Context{}, "invoice", []sdkdata.BatchUpsertTransaction{{TransactionID: "0", Data: map[string]any{"amount": 1}}})
+	if !errors.Is(err, ErrPermissionDenied) {
+		t.Errorf("errors.Is(err, ErrPermissionDenied) = false; err = %v", err)
+	}
+}
+
 func TestRecords_PermissionDeniedMapsToSentinel(t *testing.T) {
 	resetTransport()
 	transport.recordsGet = func([]byte) ([]byte, error) {
