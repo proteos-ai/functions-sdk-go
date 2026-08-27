@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	github.com/extism/go-pdk v1.1.3
-	go.proteos.ai/model v0.45.0
-	go.proteos.ai/sdk v0.45.0
+	go.proteos.ai/model v0.46.0
+	go.proteos.ai/sdk v0.46.0
 )
 
 require (
@@ -23,7 +23,7 @@ require (
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
-	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 )
