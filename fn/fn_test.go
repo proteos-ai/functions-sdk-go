@@ -173,6 +173,36 @@ func TestRegisterAction_EntityScoped(t *testing.T) {
 	}
 }
 
+func TestRegisterBatchAction_RecordIdsReachHandler(t *testing.T) {
+	dispatch.ResetForTest()
+
+	var seenIds []string
+	var seenParams sendInvoiceParams
+	fn.RegisterBatchAction[sendInvoiceParams, sendInvoiceResult](func(_ fn.Context, ids []string, p sendInvoiceParams) (sendInvoiceResult, error) {
+		seenIds = ids
+		seenParams = p
+		return sendInvoiceResult{MessageId: "msg-batch"}, nil
+	})
+
+	out, err := dispatch.RunAction([]byte(`{"entity":"invoice","record_ids":["r-1","r-2"],"action":"send-invoices","parameters":{"recipient_email":"a@b.com"}}`))
+	if err != nil {
+		t.Fatalf("RunAction: %v", err)
+	}
+	if len(seenIds) != 2 || seenIds[0] != "r-1" || seenIds[1] != "r-2" {
+		t.Errorf("recordIds = %v", seenIds)
+	}
+	if seenParams.RecipientEmail != "a@b.com" {
+		t.Errorf("params.RecipientEmail = %q", seenParams.RecipientEmail)
+	}
+	var got sendInvoiceResult
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("decode out: %v", err)
+	}
+	if got.MessageId != "msg-batch" {
+		t.Errorf("messageId = %q", got.MessageId)
+	}
+}
+
 func TestRegisterGlobalAction_NoRecordIdReachesHandler(t *testing.T) {
 	dispatch.ResetForTest()
 

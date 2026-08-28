@@ -131,8 +131,8 @@ func TestRunAction_DispatchesWithRecordId(t *testing.T) {
 	dispatch.ResetForTest()
 	var capturedRecordId string
 	var capturedParams string
-	dispatch.RegisterAction(func(_ dispatch.Context, recordId string, params json.RawMessage) ([]byte, error) {
-		capturedRecordId = recordId
+	dispatch.RegisterAction(func(_ dispatch.Context, target dispatch.ActionTarget, params json.RawMessage) ([]byte, error) {
+		capturedRecordId = target.RecordId
 		capturedParams = string(params)
 		return []byte(`{"sent":1}`), nil
 	})
@@ -154,8 +154,8 @@ func TestRunAction_DispatchesWithRecordId(t *testing.T) {
 func TestRunAction_GlobalActionEmptyRecordId(t *testing.T) {
 	dispatch.ResetForTest()
 	var capturedRecordId = "PRESET-NOT-OVERWRITTEN"
-	dispatch.RegisterAction(func(_ dispatch.Context, recordId string, _ json.RawMessage) ([]byte, error) {
-		capturedRecordId = recordId
+	dispatch.RegisterAction(func(_ dispatch.Context, target dispatch.ActionTarget, _ json.RawMessage) ([]byte, error) {
+		capturedRecordId = target.RecordId
 		return nil, nil
 	})
 	_, _ = dispatch.RunAction([]byte(`{"action":"rebuild","parameters":{},"org_id":"org-1","source":{"id":"s","type":"system"}}`))
@@ -194,7 +194,7 @@ func TestRegister_DoubleRegisterPanics(t *testing.T) {
 		{
 			name: "Action",
 			register: func() {
-				dispatch.RegisterAction(func(_ dispatch.Context, _ string, _ json.RawMessage) ([]byte, error) { return nil, nil })
+				dispatch.RegisterAction(func(_ dispatch.Context, _ dispatch.ActionTarget, _ json.RawMessage) ([]byte, error) { return nil, nil })
 			},
 			wantSub: "action handler",
 		},
@@ -234,4 +234,28 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestRunAction_DispatchesWithRecordIds(t *testing.T) {
+	dispatch.ResetForTest()
+	var capturedIds []string
+	var capturedRecordId = "PRESET-NOT-OVERWRITTEN"
+	dispatch.RegisterAction(func(_ dispatch.Context, target dispatch.ActionTarget, _ json.RawMessage) ([]byte, error) {
+		capturedIds = target.RecordIds
+		capturedRecordId = target.RecordId
+		return []byte(`{"archived":3}`), nil
+	})
+	out, err := dispatch.RunAction([]byte(`{"entity":"invoice","record_ids":["r-1","r-2","r-3"],"action":"archive","parameters":{},"org_id":"org-1","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunAction: %v", err)
+	}
+	if string(out) != `{"archived":3}` {
+		t.Errorf("out = %s", out)
+	}
+	if len(capturedIds) != 3 || capturedIds[0] != "r-1" || capturedIds[2] != "r-3" {
+		t.Errorf("recordIds = %v", capturedIds)
+	}
+	if capturedRecordId != "" {
+		t.Errorf("recordId = %q, want empty for a batch action", capturedRecordId)
+	}
 }

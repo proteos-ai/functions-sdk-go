@@ -91,15 +91,16 @@ func OnAfterDelete[T any](h func(ctx Context, record T) error) {
 }
 
 // RegisterAction registers a typed entity-scoped action handler. The
-// wasm carries exactly one action — this and RegisterGlobalAction share
-// the same slot, so calling either after the other panics.
+// wasm carries exactly one action — this, RegisterBatchAction and
+// RegisterGlobalAction share the same slot, so calling any after another
+// panics.
 func RegisterAction[P any, R any](h func(ctx Context, recordId string, params P) (R, error)) {
-	dispatch.RegisterAction(func(ctx dispatch.Context, recordId string, raw json.RawMessage) ([]byte, error) {
+	dispatch.RegisterAction(func(ctx dispatch.Context, target dispatch.ActionTarget, raw json.RawMessage) ([]byte, error) {
 		var params P
 		if err := json.Unmarshal(raw, &params); err != nil {
 			return nil, err
 		}
-		out, err := h(toPhotonCtx(ctx), recordId, params)
+		out, err := h(toPhotonCtx(ctx), target.RecordId, params)
 		if err != nil {
 			return nil, err
 		}
@@ -107,11 +108,35 @@ func RegisterAction[P any, R any](h func(ctx Context, recordId string, params P)
 	})
 }
 
-// RegisterGlobalAction registers a typed global action handler. recordId
+// RegisterBatchAction registers a typed BATCH action handler (scope
+// `entity_batch`). It is invoked ONCE per user action with the whole
+// recordIds set — never once per record — so the handler decides how to
+// batch the work: one query over the ids, one external call, one aggregate
+// result. The host guarantees recordIds is non-empty and deduped, in the
+// order the caller sent them. Shares the action slot with RegisterAction.
+//
+// Records the caller cannot read/write still fail per record downstream:
+// host calls carry the caller's own permissions. Prefer returning a result
+// that names the records that failed over aborting the whole invocation.
+func RegisterBatchAction[P any, R any](h func(ctx Context, recordIds []string, params P) (R, error)) {
+	dispatch.RegisterAction(func(ctx dispatch.Context, target dispatch.ActionTarget, raw json.RawMessage) ([]byte, error) {
+		var params P
+		if err := json.Unmarshal(raw, &params); err != nil {
+			return nil, err
+		}
+		out, err := h(toPhotonCtx(ctx), target.RecordIds, params)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(out)
+	})
+}
+
+// RegisterGlobalAction registers a typed global action handler. The target
 // from the dispatch envelope is ignored (it'll be empty anyway). Shares
 // the action slot with RegisterAction.
 func RegisterGlobalAction[P any, R any](h func(ctx Context, params P) (R, error)) {
-	dispatch.RegisterAction(func(ctx dispatch.Context, _ string, raw json.RawMessage) ([]byte, error) {
+	dispatch.RegisterAction(func(ctx dispatch.Context, _ dispatch.ActionTarget, raw json.RawMessage) ([]byte, error) {
 		var params P
 		if err := json.Unmarshal(raw, &params); err != nil {
 			return nil, err

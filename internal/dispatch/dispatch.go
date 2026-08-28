@@ -53,12 +53,15 @@ type HookEnvelope struct {
 }
 
 // ActionEnvelope — sent by the host into the guest for any action invocation.
-// Entity + RecordId are empty for global actions. Headers carries the inbound
+// Entity + RecordId are empty for global actions; RecordIds carries the whole
+// set for an `entity_batch` action (one dispatch per invocation, never one per
+// record) and is empty everywhere else. Headers carries the inbound
 // HTTP request headers (flattened) for HTTP-originated dispatch — e.g. a
 // webhook receiver reading a token header; empty otherwise.
 type ActionEnvelope struct {
 	Entity     string            `json:"entity,omitempty"`
 	RecordId   string            `json:"record_id,omitempty"`
+	RecordIds  []string          `json:"record_ids,omitempty"`
 	Action     string            `json:"action"`
 	Parameters json.RawMessage   `json:"parameters"`
 	OrgId      string            `json:"org_id"`
@@ -74,7 +77,16 @@ type ActionEnvelope struct {
 type SingleRecordHookFn func(ctx Context, record json.RawMessage) ([]byte, error)
 type BeforeUpdateHookFn func(ctx Context, record, currentRecord json.RawMessage) ([]byte, error)
 type AfterUpdateHookFn func(ctx Context, record, previousRecord json.RawMessage) ([]byte, error)
-type ActionFn func(ctx Context, recordId string, parameters json.RawMessage) ([]byte, error)
+type ActionFn func(ctx Context, target ActionTarget, parameters json.RawMessage) ([]byte, error)
+
+// ActionTarget is what an invocation is aimed at: RecordId for an `entity`
+// action, RecordIds for an `entity_batch` action, neither for a global one.
+// Carried as one struct so adding a future targeting mode doesn't churn every
+// handler signature.
+type ActionTarget struct {
+	RecordId  string
+	RecordIds []string
+}
 
 var (
 	beforeCreate SingleRecordHookFn
@@ -193,8 +205,8 @@ func RunHook(input []byte) ([]byte, error) {
 }
 
 // RunAction decodes an ActionEnvelope and invokes the (single) registered
-// action handler. The handler decides what to do with RecordId — entity
-// actions use it; global actions ignore it.
+// action handler. The handler decides what to do with the target — entity
+// actions read RecordId, batch actions RecordIds, global actions neither.
 func RunAction(input []byte) ([]byte, error) {
 	var env ActionEnvelope
 	if err := json.Unmarshal(input, &env); err != nil {
@@ -204,7 +216,7 @@ func RunAction(input []byte) ([]byte, error) {
 		return nil, fmt.Errorf("%w: action", ErrNoHandler)
 	}
 	ctx := Context{Ctx: context.Background(), OrgId: env.OrgId, Source: env.Source, Headers: env.Headers}
-	return action(ctx, env.RecordId, env.Parameters)
+	return action(ctx, ActionTarget{RecordId: env.RecordId, RecordIds: env.RecordIds}, env.Parameters)
 }
 
 // ----------------------------------------------------------------------
