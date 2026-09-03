@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	github.com/extism/go-pdk v1.1.3
-	go.proteos.ai/model v0.48.0
-	go.proteos.ai/sdk v0.48.0
+	go.proteos.ai/model v0.49.0
+	go.proteos.ai/sdk v0.49.0
 )
 
 require (

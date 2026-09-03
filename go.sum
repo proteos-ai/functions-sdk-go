@@ -41,10 +41,10 @@ go.opentelemetry.io/otel/sdk/metric v1.44.0 h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRk
 go.opentelemetry.io/otel/sdk/metric v1.44.0/go.mod h1:5B5pMARnXxKhltooO4xUuCBorl65a4EpnTalObqOigA=
 go.opentelemetry.io/otel/trace v1.44.0 h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=
 go.opentelemetry.io/otel/trace v1.44.0/go.mod h1:oLl1jrMQAVo6v3GAggN+1VH9VIz9iUSvW53sW1Q8PIE=
-go.proteos.ai/model v0.48.0 h1:4NMlSrJD9jmrzzaqlPyvAk5E3M4TaF2IUV1UPPVebXE=
-go.proteos.ai/model v0.48.0/go.mod h1:gcC7zJoHwmUpixWtuRUPJWVybmIKuDJdte9rjiZCeJY=
-go.proteos.ai/sdk v0.48.0 h1:6YRQBzRmBjtFmFq4S2NB3TZJvX92SpIF/1X02oXaeLg=
-go.proteos.ai/sdk v0.48.0/go.mod h1:as4q/SgiI3M2UOMsjSwe2uEt3fNHwiplJmZK8Bxbnuk=
+go.proteos.ai/model v0.49.0 h1:m/HSkaSoGq3tnnEJXwrWZ4+K4Jj4ndE7NpvvEN0tJ3o=
+go.proteos.ai/model v0.49.0/go.mod h1:gcC7zJoHwmUpixWtuRUPJWVybmIKuDJdte9rjiZCeJY=
+go.proteos.ai/sdk v0.49.0 h1:vaAP8HN7jfwZqSUFB6QDNkraJP4g3QRgdWH0xL1ulD0=
+go.proteos.ai/sdk v0.49.0/go.mod h1:6wJDdrOmJMIih+8mnybR7B+N/ay7IuxxnZJBHPD8nIw=
 golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa h1:Zt3DZoOFFYkKhDT3v7Lm9FDMEV06GpzjG2jrqW+QTE0=
 golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa/go.mod h1:K79w1Vqn7PoiZn+TkNpx3BUWUQksGO3JcVX6qIjytmA=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
