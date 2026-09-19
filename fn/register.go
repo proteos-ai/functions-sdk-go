@@ -8,7 +8,11 @@ import (
 
 // OnBeforeCreate registers a typed beforeCreate handler. Call from init().
 // Panics if called twice in the same process.
+//
+// T declares which attributes the handler writes; attributes the record
+// carries but T does not declare are preserved as-is (see declared.go).
 func OnBeforeCreate[T any](h func(ctx Context, record T) (T, error)) {
+	declared := declaredFields[T]()
 	dispatch.RegisterBeforeCreate(func(ctx dispatch.Context, record json.RawMessage) ([]byte, error) {
 		var rec T
 		if err := json.Unmarshal(record, &rec); err != nil {
@@ -18,12 +22,21 @@ func OnBeforeCreate[T any](h func(ctx Context, record T) (T, error)) {
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(out)
+		typedOut, err := json.Marshal(out)
+		if err != nil {
+			return nil, err
+		}
+		return preserveUndeclared(record, typedOut, declared)
 	})
 }
 
 // OnBeforeUpdate registers a typed beforeUpdate handler. Call from init().
+//
+// Same jurisdiction rule as OnBeforeCreate: undeclared attributes on the
+// incoming (already merged) record are preserved. currentRecord is read-only
+// input and is never echoed.
 func OnBeforeUpdate[T any](h func(ctx Context, record T, currentRecord T) (T, error)) {
+	declared := declaredFields[T]()
 	dispatch.RegisterBeforeUpdate(func(ctx dispatch.Context, record, currentRecord json.RawMessage) ([]byte, error) {
 		var rec, cur T
 		if err := json.Unmarshal(record, &rec); err != nil {
@@ -36,7 +49,11 @@ func OnBeforeUpdate[T any](h func(ctx Context, record T, currentRecord T) (T, er
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(out)
+		typedOut, err := json.Marshal(out)
+		if err != nil {
+			return nil, err
+		}
+		return preserveUndeclared(record, typedOut, declared)
 	})
 }
 

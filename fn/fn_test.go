@@ -261,3 +261,200 @@ func TestUserErrorf_FormatsMessage(t *testing.T) {
 		t.Errorf("err.Error() = %q", err.Error())
 	}
 }
+
+// ----------------------------------------------------------------------
+// Declared-field jurisdiction — end to end through dispatch.RunHook.
+//
+// A compiled hook only knows the attributes its type declares. Anything else
+// the record carries — an attribute added to the entity after the hook was
+// built, or one contributed by an entity-extension from another module — must
+// reach the host untouched instead of being cleared by the round-trip.
+
+func TestOnBeforeCreate_UndeclaredAttributesSurvive(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeCreate[invoice](func(_ fn.Context, inv invoice) (invoice, error) {
+		inv.Amount = inv.Amount * 2
+		return inv, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"amount":50,"customer":"acme","plus_score":7,"legacy_note":"keep me","address":{"city":"Berlin"}},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"address":{"city":"Berlin"},"amount":100,"customer":"acme","legacy_note":"keep me","plus_score":7}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+func TestOnBeforeUpdate_UndeclaredAttributesSurvive(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeUpdate[invoice](func(_ fn.Context, inv invoice, _ invoice) (invoice, error) {
+		inv.Customer = "globex"
+		return inv, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_update","entity":"invoice","record":{"amount":50,"customer":"acme","plus_score":7},"current_record":{"amount":10,"customer":"acme","plus_score":1},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"amount":50,"customer":"globex","plus_score":7}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+// TestOnBeforeUpdate_CurrentRecordIsNotEchoed: currentRecord is read-only
+// input. Only the record being written carries attributes forward — an
+// attribute that exists on the stored row but was dropped from the write must
+// not be resurrected by the hook.
+func TestOnBeforeUpdate_CurrentRecordIsNotEchoed(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeUpdate[invoice](func(_ fn.Context, inv invoice, _ invoice) (invoice, error) {
+		return inv, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_update","entity":"invoice","record":{"amount":50,"customer":"acme"},"current_record":{"amount":10,"customer":"acme","stored_only":"do not resurrect"},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"amount":50,"customer":"acme"}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+// TestOnBeforeCreate_DeclaredFieldStillClearable: the declared set comes from
+// the TYPE, not from which keys the handler's output happens to contain, so a
+// handler can still clear a field it owns. This is the property that keeps the
+// change invisible to hook authors.
+func TestOnBeforeCreate_DeclaredFieldStillClearable(t *testing.T) {
+	dispatch.ResetForTest()
+
+	type optionalInvoice struct {
+		Amount   int     `json:"amount"`
+		Customer *string `json:"customer,omitempty"`
+	}
+
+	fn.OnBeforeCreate[optionalInvoice](func(_ fn.Context, inv optionalInvoice) (optionalInvoice, error) {
+		inv.Customer = nil // clear a declared attribute
+		return inv, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"amount":50,"customer":"acme","plus_score":7},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"amount":50,"plus_score":7}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+// TestOnBeforeCreate_UntypedHandlerUnchanged: a map-typed handler already sees
+// and returns every attribute, so jurisdiction does not apply and its output
+// passes through exactly as the handler built it.
+func TestOnBeforeCreate_UntypedHandlerUnchanged(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeCreate[map[string]any](func(_ fn.Context, rec map[string]any) (map[string]any, error) {
+		delete(rec, "plus_score") // the handler CAN drop what it can see
+		rec["added"] = "by hook"
+		return rec, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"amount":50,"plus_score":7},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"added":"by hook","amount":50}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+// TestOnBeforeCreate_UndeclaredPrecisionPreserved: a carried value must reach
+// the host byte-identical. Decoding an int64 id into float64 and back would
+// corrupt it even though no hook ever touched the attribute.
+func TestOnBeforeCreate_UndeclaredPrecisionPreserved(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeCreate[invoice](func(_ fn.Context, inv invoice) (invoice, error) {
+		return inv, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"amount":1,"customer":"acme","external_id":12345678901234567890,"price":"10.010000000000000001"},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"amount":1,"customer":"acme","external_id":12345678901234567890,"price":"10.010000000000000001"}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+// TestOnBeforeCreate_HandlerErrorSkipsPreservation: an aborting hook returns no
+// payload at all — preservation must not manufacture one that looks like a
+// successful write.
+func TestOnBeforeCreate_HandlerErrorSkipsPreservation(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeCreate[invoice](func(_ fn.Context, _ invoice) (invoice, error) {
+		return invoice{}, errors.New("rejected")
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"amount":50,"plus_score":7},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err == nil {
+		t.Fatal("expected the handler error to propagate")
+	}
+	if out != nil {
+		t.Errorf("out = %s, want nil", out)
+	}
+}
+
+// TestOnBeforeCreate_TaggedFieldWinsSameDepthContest: when two embedded structs
+// claim the same JSON name at the same depth, encoding/json lets a tagged field
+// beat an untagged one — so the handler really does own that attribute. It must
+// be able to clear it, and the stale input value must not be echoed back over
+// the clear.
+func TestOnBeforeCreate_TaggedFieldWinsSameDepthContest(t *testing.T) {
+	dispatch.ResetForTest()
+
+	fn.OnBeforeCreate[contestedRecord](func(_ fn.Context, rec contestedRecord) (contestedRecord, error) {
+		rec.optionalTone.Tone = nil // clear the attribute the tagged field owns
+		return rec, nil
+	})
+
+	out, err := dispatch.RunHook([]byte(`{"event":"before_create","entity":"invoice","record":{"Tone":"formal","amount":50,"plus_score":7},"org_id":"o","source":{"id":"u","type":"user"}}`))
+	if err != nil {
+		t.Fatalf("RunHook: %v", err)
+	}
+
+	want := `{"amount":50,"plus_score":7}`
+	if string(out) != want {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+type optionalTone struct {
+	Tone *string `json:"Tone,omitempty"`
+}
+
+type plainTone struct {
+	Tone string
+}
+
+type contestedRecord struct {
+	optionalTone
+	plainTone
+	Amount int `json:"amount"`
+}
