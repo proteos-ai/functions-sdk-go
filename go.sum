@@ -37,10 +37,10 @@ go.opentelemetry.io/otel/sdk/metric v1.44.0 h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRk
 go.opentelemetry.io/otel/sdk/metric v1.44.0/go.mod h1:5B5pMARnXxKhltooO4xUuCBorl65a4EpnTalObqOigA=
 go.opentelemetry.io/otel/trace v1.44.0 h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=
 go.opentelemetry.io/otel/trace v1.44.0/go.mod h1:oLl1jrMQAVo6v3GAggN+1VH9VIz9iUSvW53sW1Q8PIE=
-go.proteos.ai/model v0.73.0 h1:NQCyPCDy6ULl21d3UgHO4TQJVZuhyWv5/JxDGhHSA4Q=
-go.proteos.ai/model v0.73.0/go.mod h1:XmAVVwd/OdiO6CEWDjvUZDX0Xt2AffeqgGVRP0VJCUY=
-go.proteos.ai/sdk v0.73.0 h1:WvzqUAEWKvy1YpFz47SSTBQZ2GiZJNBEjXN6I4Z3F20=
-go.proteos.ai/sdk v0.73.0/go.mod h1:syIlnKCi/1UC7rpAAKar3svfdhSuAqIckjarpujG4Zk=
+go.proteos.ai/model v0.74.0 h1:6x6e7p76591I8bWF+3Ap5+Sjm2saws+mPyrsMsmeVug=
+go.proteos.ai/model v0.74.0/go.mod h1:XmAVVwd/OdiO6CEWDjvUZDX0Xt2AffeqgGVRP0VJCUY=
+go.proteos.ai/sdk v0.74.0 h1:Im7U46E6/P6Uc2qfVLl2bX/C+b3KgiCoHoApkHFQK2s=
+go.proteos.ai/sdk v0.74.0/go.mod h1:K+nnGly5O8g3ReS5P/noAraiKPpgfMePPviTBqe80rc=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa h1:Zt3DZoOFFYkKhDT3v7Lm9FDMEV06GpzjG2jrqW+QTE0=
