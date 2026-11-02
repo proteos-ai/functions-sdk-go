@@ -8,6 +8,8 @@
 //   - fn — types and Register* helpers authors call from func init().
 //   - runtime/autoexport — //go:wasmexport entry points (wasip1 only).
 //     Imported for side-effects via `_ "…/runtime/autoexport"`.
+//   - runtime/bundle — Register(slug, fn) used only by the main.go that
+//     `pro module build` generates for a function bundle.
 //   - host — wrappers around //go:wasmimport stubs (records, query, http,
 //     cache, secrets, log). Lands in LUM-48.
 package functionssdkgo

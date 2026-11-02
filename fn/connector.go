@@ -43,9 +43,11 @@ func (ctx ConnectorContext) Token() string {
 }
 
 // RegisterConnectorMethod registers the typed handler of ONE connector
-// method (one wasm per method; the name must match the method.json folder —
-// codegen + the module build keep them aligned). Call from init() in the
-// method's main.go:
+// method (the name must match the method.json folder — codegen + the module
+// build keep them aligned). Standalone builds ship one wasm per method; a
+// function bundle keys the handler by the method's action-row slug so every
+// method of a module can live in one wasm. Call from init() in the method's
+// main.go:
 //
 //	func init() {
 //		fn.RegisterConnectorMethod("get_event",

@@ -40,3 +40,13 @@ func runConnectorMethod() int32 {
 	pdk.Output(out)
 	return 0
 }
+
+// warm is a no-op entry point. Calling any export runs the guest's
+// _initialize first (Go runtime boot plus every package init), so the host
+// uses this one to pay that cost right after instantiation — measurable and
+// ahead of the first real call — instead of inside it.
+//
+//go:wasmexport warm
+func warm() int32 {
+	return 0
+}

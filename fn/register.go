@@ -107,10 +107,11 @@ func OnAfterDelete[T any](h func(ctx Context, record T) error) {
 	})
 }
 
-// RegisterAction registers a typed entity-scoped action handler. The
-// wasm carries exactly one action — this, RegisterBatchAction and
+// RegisterAction registers a typed entity-scoped action handler. A
+// function carries exactly one action — this, RegisterBatchAction and
 // RegisterGlobalAction share the same slot, so calling any after another
-// panics.
+// panics. Inside a function bundle the handler is keyed by the function's
+// slug, so every action of a module can live in one wasm.
 func RegisterAction[P any, R any](h func(ctx Context, recordId string, params P) (R, error)) {
 	dispatch.RegisterAction(func(ctx dispatch.Context, target dispatch.ActionTarget, raw json.RawMessage) ([]byte, error) {
 		var params P
