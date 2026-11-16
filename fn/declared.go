@@ -3,8 +3,6 @@ package fn
 import (
 	"encoding/json"
 	"reflect"
-	"strings"
-	"unicode"
 )
 
 // Declared fields — the jurisdiction rule for record-returning hooks.
@@ -111,13 +109,10 @@ func collectDeclared(t reflect.Type, depth int, claims map[string]fieldClaim, vi
 		if tag == "-" {
 			continue
 		}
-		name, _, _ := strings.Cut(tag, ",")
 		// An unusable tag name is discarded outright: encoding/json falls back
 		// to the Go field name AND stops treating the field as tagged, which
 		// changes which field wins a same-name contest.
-		if !isValidTag(name) {
-			name = ""
-		}
+		name := jsonTagName(tag)
 		isTagged := name != ""
 
 		// The exported check runs differently for anonymous fields:
@@ -195,23 +190,6 @@ func preserveUndeclared(input json.RawMessage, typedOut []byte, declared map[str
 		out[key] = value
 	}
 	return json.Marshal(out)
-}
-
-// isValidTag mirrors encoding/json's rule for a usable tag name: non-empty,
-// and made only of letters, digits, and the punctuation json permits.
-func isValidTag(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, char := range name {
-		switch {
-		case strings.ContainsRune("!#$%&()*+-./:;<=>?@[]^_{|}~ ", char):
-			// Backslash and quote are reserved; other punctuation is allowed.
-		case !unicode.IsLetter(char) && !unicode.IsDigit(char):
-			return false
-		}
-	}
-	return true
 }
 
 // deref unwraps pointer types down to the pointed-at type.

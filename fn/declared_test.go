@@ -131,8 +131,19 @@ type outerOptionalTagged struct {
 // An unusable tag name is discarded: encoding/json falls back to the Go field
 // name and stops treating the field as tagged.
 type badTagRecord struct {
-	Amount int    `json:"a\"b"`
+	Amount int    `json:"\"ab"`
 	Name   string `json:"name"`
+}
+
+// Tag names the encoding/json implementations disagree on: the original one
+// discards each of these, the jsonv2-backed one keeps the leading identifier
+// or the whole name. Only the drift guard covers them, because the right
+// answer depends on which implementation the toolchain compiles in.
+type divergentTagRecord struct {
+	Quoted    int `json:"amount\"x"`
+	Escaped   int `json:"total\\x"`
+	Symbol    int `json:"a☺"`
+	Collision int `json:"total'y"`
 }
 
 type selfEmbedding struct {
@@ -283,6 +294,7 @@ func TestDeclaredFields_MatchesEncodingJSON(t *testing.T) {
 		{"tagged wins", outerTaggedWins{}, declaredFields[outerTaggedWins]()},
 		{"shallow untagged wins", outerShallowUntaggedWins{}, declaredFields[outerShallowUntaggedWins]()},
 		{"bad tag", badTagRecord{}, declaredFields[badTagRecord]()},
+		{"divergent tags", divergentTagRecord{}, declaredFields[divergentTagRecord]()},
 		{"self embedding", selfEmbedding{}, declaredFields[selfEmbedding]()},
 		{"value embed", outerValueEmbed{}, declaredFields[outerValueEmbed]()},
 		{"exported value embed", outerExportedValueEmbed{}, declaredFields[outerExportedValueEmbed]()},
