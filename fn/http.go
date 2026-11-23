@@ -2,6 +2,7 @@ package fn
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // HTTP is the guest's outbound HTTP surface. Backed by the
@@ -41,6 +42,26 @@ type httpRequestEnvelope struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers,omitempty"`
 	Body    []byte            `json:"body,omitempty"`
+	// TimeoutMs is the per-call budget set by WithTimeout; omitted means the
+	// host default (60s).
+	TimeoutMs int64 `json:"timeout_ms,omitempty"`
+}
+
+// HTTPOption adjusts one HTTP call. Pass any number after the call's
+// regular arguments, e.g. fn.HTTP.Get(ctx, url, nil, fn.WithTimeout(10*time.Second)).
+type HTTPOption func(*httpRequestEnvelope)
+
+// WithTimeout bounds one HTTP call. Without it a call may take up to 60s.
+// The invocation's own deadline (60s for actions and connector methods, 30s
+// for hooks) still applies, so a longer value cannot outlive the invocation.
+func WithTimeout(d time.Duration) HTTPOption {
+	return func(envelope *httpRequestEnvelope) {
+		// Round up so a sub-millisecond budget stays a short timeout instead
+		// of becoming 0, which the host reads as "use the 60s default".
+		if d > 0 {
+			envelope.TimeoutMs = int64((d + time.Millisecond - 1) / time.Millisecond)
+		}
+	}
 }
 
 // httpResponseEnvelope is the JSON shape the host fn returns inside the
@@ -53,37 +74,37 @@ type httpResponseEnvelope struct {
 
 // Get issues GET <url> with the given headers (pass nil for none) — e.g. an
 // Authorization bearer token. Symmetric with Post/Put/Patch/Delete.
-func (httpAPI) Get(ctx Context, url string, headers map[string]string) (Response, error) {
-	return httpDo(ctx, "GET", url, nil, headers)
+func (httpAPI) Get(ctx Context, url string, headers map[string]string, options ...HTTPOption) (Response, error) {
+	return httpDo(ctx, "GET", url, nil, headers, options)
 }
 
 // Post issues POST <url> with the given body and headers.
-func (httpAPI) Post(ctx Context, url string, body []byte, headers map[string]string) (Response, error) {
-	return httpDo(ctx, "POST", url, body, headers)
+func (httpAPI) Post(ctx Context, url string, body []byte, headers map[string]string, options ...HTTPOption) (Response, error) {
+	return httpDo(ctx, "POST", url, body, headers, options)
 }
 
 // PostJSON marshals body to JSON, sets Content-Type, and POSTs.
-func (httpAPI) PostJSON(ctx Context, url string, body any) (Response, error) {
+func (httpAPI) PostJSON(ctx Context, url string, body any, options ...HTTPOption) (Response, error) {
 	marshaled, err := json.Marshal(body)
 	if err != nil {
 		return Response{}, err
 	}
-	return httpDo(ctx, "POST", url, marshaled, map[string]string{"Content-Type": "application/json"})
+	return httpDo(ctx, "POST", url, marshaled, map[string]string{"Content-Type": "application/json"}, options)
 }
 
 // Put issues PUT <url>.
-func (httpAPI) Put(ctx Context, url string, body []byte, headers map[string]string) (Response, error) {
-	return httpDo(ctx, "PUT", url, body, headers)
+func (httpAPI) Put(ctx Context, url string, body []byte, headers map[string]string, options ...HTTPOption) (Response, error) {
+	return httpDo(ctx, "PUT", url, body, headers, options)
 }
 
 // Patch issues PATCH <url>.
-func (httpAPI) Patch(ctx Context, url string, body []byte, headers map[string]string) (Response, error) {
-	return httpDo(ctx, "PATCH", url, body, headers)
+func (httpAPI) Patch(ctx Context, url string, body []byte, headers map[string]string, options ...HTTPOption) (Response, error) {
+	return httpDo(ctx, "PATCH", url, body, headers, options)
 }
 
 // Delete issues DELETE <url>.
-func (httpAPI) Delete(ctx Context, url string, headers map[string]string) (Response, error) {
-	return httpDo(ctx, "DELETE", url, nil, headers)
+func (httpAPI) Delete(ctx Context, url string, headers map[string]string, options ...HTTPOption) (Response, error) {
+	return httpDo(ctx, "DELETE", url, nil, headers, options)
 }
 
 // httpDo serializes the request to JSON, routes it through
@@ -93,13 +114,17 @@ func (httpAPI) Delete(ctx Context, url string, headers map[string]string) (Respo
 // Lives in this file (not _wasip1.go) because the transport indirection
 // means the same code path works on both wasip1 and the host-side stub
 // transport used by unit tests.
-func httpDo(_ Context, method, url string, body []byte, headers map[string]string) (Response, error) {
-	reqBytes, err := json.Marshal(httpRequestEnvelope{
+func httpDo(_ Context, method, url string, body []byte, headers map[string]string, options []HTTPOption) (Response, error) {
+	envelope := httpRequestEnvelope{
 		Method:  method,
 		URL:     url,
 		Headers: headers,
 		Body:    body,
-	})
+	}
+	for _, option := range options {
+		option(&envelope)
+	}
+	reqBytes, err := json.Marshal(envelope)
 	if err != nil {
 		return Response{}, err
 	}
